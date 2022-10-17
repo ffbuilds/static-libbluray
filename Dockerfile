@@ -6,9 +6,10 @@ ARG LIBBLURAY_VERSION=1.3.3
 ARG LIBBLURAY_URL="https://code.videolan.org/videolan/libbluray/-/archive/$LIBBLURAY_VERSION/libbluray-$LIBBLURAY_VERSION.tar.gz"
 ARG LIBBLURAY_SHA256=b29ead1050c8a75729eef645d1d94c112845bbce7cf507cad7bc8edf4d04ebe7
 
-# bump: alpine /FROM alpine:([\d.]+)/ docker:alpine|^3
-# bump: alpine link "Release notes" https://alpinelinux.org/posts/Alpine-$LATEST-released.html
-FROM alpine:3.16.2 AS base
+# Must be specified
+ARG ALPINE_VERSION
+
+FROM alpine:${ALPINE_VERSION} AS base
 
 FROM base AS download
 ARG LIBBLURAY_URL
@@ -32,13 +33,18 @@ COPY --from=download /tmp/libbluray/ /tmp/libbluray/
 WORKDIR /tmp/libbluray
 RUN \
   apk add --no-cache --virtual build \
-    build-base autoconf automake libtool \
+    build-base autoconf automake libtool pkgconf \
     libxml2-dev \
     freetype freetype-dev freetype-static \
     fontconfig-dev fontconfig-static && \
   autoreconf -fiv && \
   ./configure --with-pic --disable-doxygen-doc --disable-doxygen-dot --enable-static --disable-shared --disable-examples --disable-bdjava-jar && \
   make -j$(nproc) install && \
+  # Sanity tests
+  pkg-config --exists --modversion --path libbluray && \
+  ar -t /usr/local/lib/libbluray.a && \
+  readelf -h /usr/local/lib/libbluray.a && \
+  # Cleanup
   apk del build
 
 FROM scratch
