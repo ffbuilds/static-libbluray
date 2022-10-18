@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 
 # bump: libbluray /LIBBLURAY_VERSION=([\d.]+)/ https://code.videolan.org/videolan/libbluray.git|*
 # bump: libbluray after ./hashupdate Dockerfile LIBBLURAY $LATEST
@@ -9,7 +10,12 @@ ARG LIBBLURAY_SHA256=b29ead1050c8a75729eef645d1d94c112845bbce7cf507cad7bc8edf4d0
 # Must be specified
 ARG ALPINE_VERSION
 
+# Can be specified as anything@sha256:<hash>
+ARG LIBXML2_VERSION=main
+
 FROM alpine:${ALPINE_VERSION} AS base
+
+FROM ghcr.io/ffbuilds/static-libxml2-alpine_${ALPINE_VERSION}:${LIBXML2_VERSION} AS libxml2
 
 FROM base AS download
 ARG LIBBLURAY_URL
@@ -29,12 +35,14 @@ RUN \
   apk del download
 
 FROM base AS build
+COPY --from=libxml2 /usr/local/lib/pkgconfig/libxml-2.0.pc /usr/local/lib/pkgconfig/libxml-2.0.pc
+COPY --from=libxml2 /usr/local/lib/libxml2.a /usr/local/lib/libxml2.a
+COPY --from=libxml2 /usr/local/include/libxml2/ /usr/local/include/libxml2/
 COPY --from=download /tmp/libbluray/ /tmp/libbluray/
 WORKDIR /tmp/libbluray
 RUN \
   apk add --no-cache --virtual build \
     build-base autoconf automake libtool pkgconf \
-    libxml2-dev \
     freetype freetype-dev freetype-static \
     fontconfig-dev fontconfig-static && \
   autoreconf -fiv && \
