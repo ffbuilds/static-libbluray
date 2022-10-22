@@ -39,14 +39,32 @@ COPY --from=libxml2 /usr/local/lib/pkgconfig/libxml-2.0.pc /usr/local/lib/pkgcon
 COPY --from=libxml2 /usr/local/lib/libxml2.a /usr/local/lib/libxml2.a
 COPY --from=libxml2 /usr/local/include/libxml2/ /usr/local/include/libxml2/
 COPY --from=download /tmp/libbluray/ /tmp/libbluray/
+ARG ALPINE_VERSION
 WORKDIR /tmp/libbluray
 RUN \
+  case ${ALPINE_VERSION} in \
+    edge) \
+      # libbluray fails on edge with freetype enabled
+      # https://gist.github.com/binoculars/a97a45b2ad32a8289a302fd340143f93
+      config_opts="--without-freetype" \
+    ;; \
+    *) \
+      apk_pkgs="freetype-dev freetype-static fontconfig-dev fontconfig-static" \
+    ;; \
+  esac && \
   apk add --no-cache --virtual build \
-    build-base autoconf automake libtool pkgconf \
-    freetype freetype-dev freetype-static \
-    fontconfig-dev fontconfig-static && \
+    build-base autoconf automake libtool pkgconf ${apk_pkgs} && \
   autoreconf -fiv && \
-  ./configure --with-pic --disable-doxygen-doc --disable-doxygen-dot --enable-static --disable-shared --disable-examples --disable-bdjava-jar && \
+  ./configure \
+    --with-pic \
+    --disable-doxygen-doc \
+    --disable-doxygen-dot \
+    --enable-static \
+    --disable-shared \
+    --disable-examples \
+    --disable-bdjava-jar \
+    ${config_opts} \
+  && \
   make -j$(nproc) install && \
   # Sanity tests
   pkg-config --exists --modversion --path libbluray && \
