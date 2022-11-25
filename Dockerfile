@@ -42,18 +42,8 @@ COPY --from=download /tmp/libbluray/ /tmp/libbluray/
 ARG ALPINE_VERSION
 WORKDIR /tmp/libbluray
 RUN \
-  case ${ALPINE_VERSION} in \
-    edge) \
-      # libbluray fails on edge with freetype enabled
-      # https://gist.github.com/binoculars/a97a45b2ad32a8289a302fd340143f93
-      config_opts="--without-freetype" \
-    ;; \
-    *) \
-      apk_pkgs="freetype-dev freetype-static fontconfig-dev fontconfig-static" \
-    ;; \
-  esac && \
   apk add --no-cache --virtual build \
-    build-base autoconf automake libtool pkgconf ${apk_pkgs} && \
+    build-base autoconf automake libtool pkgconf && \
   autoreconf -fiv && \
   ./configure \
     --with-pic \
@@ -63,7 +53,7 @@ RUN \
     --disable-shared \
     --disable-examples \
     --disable-bdjava-jar \
-    ${config_opts} \
+    --without-freetype \
   && \
   make -j$(nproc) install && \
   # Sanity tests
